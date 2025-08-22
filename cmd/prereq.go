@@ -21,7 +21,7 @@ var prereqCmd = &cobra.Command{
 		}
 		slog.Info("running prerequisites", "os", prereqOS, "nodes", hosts)
 		script := filepath.Join(prereqOS, "prereq.sh")
-		if _, err := remote.RunParallel(hosts, AppConfig.SSHUser, AppConfig.SSHKey, script, []string{"env.sh"}); err != nil {
+		if _, err := remote.RunParallelScript(hosts, AppConfig.SSHUser, AppConfig.SSHKey, script, []string{"env.sh"}); err != nil {
 			return fmt.Errorf("failed to run prerequisites: %v", err)
 		}
 		slog.Info("prerequisites complete")

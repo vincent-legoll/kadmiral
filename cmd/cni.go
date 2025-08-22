@@ -33,7 +33,7 @@ var cniInstallCmd = &cobra.Command{
 		host := AppConfig.ControlPlaneNodes[0]
 		slog.Info("installing CNI", "name", name, "node", host)
 		// assume CNI is installed on control plane first node
-		if _, err := remote.RunParallel([]string{host}, AppConfig.SSHUser, AppConfig.SSHKey, script, nil); err[0] != nil {
+		if _, err := remote.RunParallelScript([]string{host}, AppConfig.SSHUser, AppConfig.SSHKey, script, nil); err[0] != nil {
 			return fmt.Errorf("failed to install CNI: %v", err)
 		}
 		slog.Info("CNI installed", "name", name)

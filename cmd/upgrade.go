@@ -17,7 +17,7 @@ var upgradeCmd = &cobra.Command{
 			return fmt.Errorf("no nodes specified")
 		}
 		slog.Info("upgrading cluster", "nodes", hosts)
-		if _, err := remote.RunParallel(hosts, AppConfig.SSHUser, AppConfig.SSHKey, "upgrade.sh", nil); err != nil {
+		if _, err := remote.RunParallelScript(hosts, AppConfig.SSHUser, AppConfig.SSHKey, "upgrade.sh", nil); err != nil {
 			return fmt.Errorf("failed to upgrade nodes: %v", err)
 		}
 		slog.Info("upgrade complete", "nodes", hosts)

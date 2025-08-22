@@ -33,9 +33,11 @@ var joinNodeCmd = &cobra.Command{
 			slog.Info("joining nodes", "nodes", hosts, "master", joinMaster)
 			return fmt.Errorf("failed to get join command: %v", err)
 		}
-		command := strings.TrimSpace(string(out))
-		slog.Debug("join command", "command", command)
-		_, errs := remote.RunParallel(hosts, AppConfig.SSHUser, AppConfig.SSHKey, command, nil)
+		commandStr := strings.TrimSpace(string(out))
+		commandStr = fmt.Sprintf("sudo %s", commandStr) // prepend sudo to the command
+		command := strings.Split(commandStr, " ")
+		slog.Debug("WARNING DO NOT PRINT IN LOGjoin command", "command", commandStr)
+		_, errs := remote.RunParallelCommand(hosts, AppConfig.SSHUser, AppConfig.SSHKey, command)
 
 		var outErrMsg string
 		for i, err := range errs {

@@ -20,7 +20,9 @@ type RunResult struct {
 	Err    error
 }
 
-func RunParallel(hosts []string, user, key, script string, deps []string) ([]string, []error) {
+// RunParallelScript uploads the script and its dependencies to each host and executes it in parallel.
+// Returns the outputs and errors for each host.
+func RunParallelScript(hosts []string, user, key, script string, deps []string) ([]string, []error) {
 	slog.Info("run script", "script", script, "hosts", hosts)
 	var wg sync.WaitGroup
 	resultCh := make(chan RunResult, len(hosts))
@@ -51,18 +53,31 @@ func RunParallel(hosts []string, user, key, script string, deps []string) ([]str
 	wg.Wait()
 	close(resultCh)
 
-	var outputs []string
-	var errs []error
-	for res := range resultCh {
-		outputs = append(outputs, res.Output)
-		if res.Err != nil {
-			errs = append(errs, fmt.Errorf("ssh %s: %v", res.Host, res.Err))
-		} else {
-			errs = append(errs, nil)
-		}
+	return formatRunResults(resultCh)
+}
 
+func RunParallelCommand(hosts []string, user, key string, command []string) ([]string, []error) {
+	slog.Info("run command", "command", command, "hosts", hosts)
+	var wg sync.WaitGroup
+	resultCh := make(chan RunResult, len(hosts))
+	for _, h := range hosts {
+		host := h
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			out, err := RunCommand(host, user, key, command, nil)
+			msg := strings.TrimSpace(string(out))
+			resultCh <- RunResult{
+				Host:   host,
+				Output: msg,
+				Err:    err,
+			}
+		}()
 	}
-	return outputs, errs
+	wg.Wait()
+	close(resultCh)
+
+	return formatRunResults(resultCh)
 }
 
 func RunCommand(host, user, key string, command []string, deps []string) ([]byte, error) {
@@ -83,6 +98,18 @@ func RunCommand(host, user, key string, command []string, deps []string) ([]byte
 		slog.Info("script complete", "host", host)
 	}
 	return out, err
+}
+
+func formatRunResults(resultCh chan RunResult) (outputs []string, errs []error) {
+	for res := range resultCh {
+		outputs = append(outputs, res.Output)
+		if res.Err != nil {
+			errs = append(errs, fmt.Errorf("ssh %s: %v", res.Host, res.Err))
+		} else {
+			errs = append(errs, nil)
+		}
+	}
+	return outputs, errs
 }
 
 func uploadScript(host string, user, key, script string) error {
