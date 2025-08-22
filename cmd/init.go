@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/k8s-school/kadmiral/pkg/remote"
@@ -13,13 +12,6 @@ var initCmd = &cobra.Command{
 	Short: "initialize the control plane",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		host := AppConfig.ControlPlaneNodes[0]
-		if host == "" {
-			hosts := nodeList()
-			if len(hosts) == 0 {
-				return fmt.Errorf("no nodes specified")
-			}
-			host = hosts[0]
-		}
 		slog.Info("initializing control plane", "node", host)
 		if _, err := remote.RunParallel([]string{host}, AppConfig.SSHUser, AppConfig.SSHKey, "init.sh", []string{"kubeadm-config.yaml", "tokens.csv", "wait-for-master.sh"}); err != nil {
 			return err[0]

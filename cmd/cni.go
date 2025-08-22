@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
-	"path/filepath"
 
 	"github.com/k8s-school/kadmiral/pkg/remote"
+	"github.com/k8s-school/kadmiral/resources"
 	"github.com/spf13/cobra"
 )
 
@@ -15,20 +15,26 @@ var cniCmd = &cobra.Command{
 }
 
 var cniInstallCmd = &cobra.Command{
-	Use:   "install [name]",
+	Use:   "install [calico|cilium]",
 	Short: "install a CNI plugin",
-	Args:  cobra.ExactArgs(1),
+	Example: `  kadmiral cni install cilium
+  kadmiral cni install calico (TODO)`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		script := filepath.Join("/tmp/kadmiral/resource", fmt.Sprintf("install-%s.sh", name))
-		hosts := nodeList()
-		if len(hosts) == 0 {
-			return fmt.Errorf("no nodes specified")
+		script := fmt.Sprintf("install-%s.sh", name)
+
+		// Check if script exists could be done here
+		_, err := resources.Fs.Open(script) // to trigger error if not exists
+		if err != nil {
+			return fmt.Errorf("CNI plugin %q not supported", name)
 		}
-		slog.Info("installing CNI", "name", name, "node", hosts[0])
+
+		host := AppConfig.ControlPlaneNodes[0]
+		slog.Info("installing CNI", "name", name, "node", host)
 		// assume CNI is installed on control plane first node
-		if _, err := remote.RunParallel([]string{hosts[0]}, AppConfig.SSHUser, AppConfig.SSHKey, script, nil); err != nil {
-			return err[0]
+		if _, err := remote.RunParallel([]string{host}, AppConfig.SSHUser, AppConfig.SSHKey, script, nil); err != nil {
+			return fmt.Errorf("failed to install CNI: %v", err)
 		}
 		slog.Info("CNI installed", "name", name)
 		return nil
