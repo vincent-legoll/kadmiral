@@ -10,11 +10,20 @@ import (
 	"github.com/k8s-school/kadmiral/resources"
 )
 
+// It can be better to merge errCh and outCh into a single channel of a struct type,
+// so each goroutine sends both output and error together. This avoids race conditions
+// and ensures outputs/errors are paired per host.
+
+type RunResult struct {
+	Host   string
+	Output string
+	Err    error
+}
+
 func RunParallel(hosts []string, user, key, script string, deps []string) ([]string, []error) {
 	slog.Info("run script", "script", script, "hosts", hosts)
 	var wg sync.WaitGroup
-	errCh := make(chan error, len(hosts))
-	outCh := make(chan string, len(hosts))
+	resultCh := make(chan RunResult, len(hosts))
 	for _, h := range hosts {
 		host := h
 		wg.Add(1)
@@ -24,41 +33,46 @@ func RunParallel(hosts []string, user, key, script string, deps []string) ([]str
 			for _, file := range append([]string{script}, deps...) {
 				if err := uploadScript(host, user, key, file); err != nil {
 					slog.Error("failed to upload script", "host", host, "script", file, "err", err)
-					errCh <- err
+					resultCh <- RunResult{Host: host, Output: "", Err: err}
 					return
 				}
 			}
 
-			out, err := RunScript(host, user, key, script, deps)
+			command := []string{"bash", "/tmp/kubeadm/" + script}
+			out, err := RunCommand(host, user, key, command, deps)
 			msg := strings.TrimSpace(string(out))
-			outCh <- fmt.Sprintf("host %s: %s", host, msg)
-			if err != nil {
-				errCh <- fmt.Errorf("ssh %s: %v: %s", host, err, msg)
+			resultCh <- RunResult{
+				Host:   host,
+				Output: msg,
+				Err:    err,
 			}
 		}()
 	}
 	wg.Wait()
-	close(errCh)
-	close(outCh)
+	close(resultCh)
+
 	var outputs []string
-	for msg := range outCh {
-		outputs = append(outputs, msg)
-	}
 	var errs []error
-	for err := range errCh {
-		errs = append(errs, err)
+	for res := range resultCh {
+		outputs = append(outputs, res.Output)
+		if res.Err != nil {
+			errs = append(errs, fmt.Errorf("ssh %s: %v", res.Host, res.Err))
+		} else {
+			errs = append(errs, nil)
+		}
+
 	}
 	return outputs, errs
 }
 
-func RunScript(host string, user, key, script string, deps []string) ([]byte, error) {
+func RunCommand(host, user, key string, command []string, deps []string) ([]byte, error) {
 	sshArgs := []string{}
 	if key != "" {
 		sshArgs = append(sshArgs, "-i", key)
 	}
-	scriptPath := "/tmp/kubeadm/" + script
-	sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", user, host), "bash", scriptPath)
-	slog.Info("exec script", "host", host, "script", scriptPath)
+	sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", user, host))
+	sshArgs = append(sshArgs, command...)
+	slog.Info("exec script", "host", host, "command", command)
 	cmd := exec.Command("ssh", sshArgs...)
 	out, err := cmd.CombinedOutput()
 

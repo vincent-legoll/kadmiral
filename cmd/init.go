@@ -13,7 +13,7 @@ var initCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		host := AppConfig.ControlPlaneNodes[0]
 		slog.Info("initializing control plane", "node", host)
-		if _, err := remote.RunParallel([]string{host}, AppConfig.SSHUser, AppConfig.SSHKey, "init.sh", []string{"kubeadm-config.yaml", "tokens.csv", "wait-for-master.sh"}); err != nil {
+		if _, err := remote.RunParallel([]string{host}, AppConfig.SSHUser, AppConfig.SSHKey, "init.sh", []string{"kubeadm-config.yaml", "tokens.csv", "wait-for-master.sh"}); err[0] != nil {
 			return err[0]
 		}
 		slog.Info("control plane initialized", "node", host)

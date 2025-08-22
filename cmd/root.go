@@ -3,7 +3,6 @@ package cmd
 import (
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/k8s-school/ciux/log"
 	"github.com/spf13/cobra"
@@ -49,16 +48,6 @@ func init() {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		return loadConfig()
 	}
-}
-
-func nodeList() []string {
-	var list []string
-	for _, n := range AppConfig.WorkerNodes {
-		if trimmed := strings.TrimSpace(n); trimmed != "" {
-			list = append(list, trimmed)
-		}
-	}
-	return list
 }
 
 func loadConfig() error {

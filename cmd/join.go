@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/k8s-school/kadmiral/pkg/remote"
 	"github.com/spf13/cobra"
@@ -25,33 +26,35 @@ var joinNodeCmd = &cobra.Command{
 	Short: "join a worker node",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if joinMaster == "" || joinToken == "" || joinHash == "" {
-			return fmt.Errorf("master, token and ca-hash must be provided")
+		hosts := AppConfig.WorkerNodes
+		printJoinCommand := strings.Split("kubeadm token create --print-join-command --ttl 24h", " ")
+		out, err := remote.RunCommand(AppConfig.ControlPlaneNodes[0], AppConfig.SSHUser, AppConfig.SSHKey, printJoinCommand, []string{})
+		if err != nil {
+			slog.Info("joining nodes", "nodes", hosts, "master", joinMaster)
+			return fmt.Errorf("failed to get join command: %v", err)
 		}
-		hosts := []string{}
-		if joinAll {
-			hosts = nodeList()
-		} else {
-			if len(args) != 1 {
-				return fmt.Errorf("node name required unless --all is set")
+		command := strings.TrimSpace(string(out))
+		slog.Debug("join command", "command", command)
+		_, errs := remote.RunParallel(hosts, AppConfig.SSHUser, AppConfig.SSHKey, command, nil)
+
+		var outErrMsg string
+		for i, err := range errs {
+			if err != nil {
+				slog.Error("failed to join node", "error", err)
+				outErrMsg = fmt.Sprintf("%s, node %s failed to join: %v", outErrMsg, hosts[i], err)
 			}
-			hosts = []string{args[0]}
-		}
-		command := fmt.Sprintf("kubeadm join %s --token %s --discovery-token-ca-cert-hash sha256:%s", joinMaster, joinToken, joinHash)
-		slog.Info("joining nodes", "nodes", hosts, "master", joinMaster)
-		if _, err := remote.RunParallel(hosts, AppConfig.SSHUser, AppConfig.SSHKey, command, nil); err != nil {
-			return fmt.Errorf("failed to join nodes: %v", err)
 		}
 		slog.Info("nodes joined", "nodes", hosts)
-		return nil
+		if outErrMsg == "" {
+			return nil
+		} else {
+			return fmt.Errorf("failed to join one or more nodes: %s", outErrMsg)
+		}
 	},
 }
 
 func init() {
 	joinNodeCmd.Flags().BoolVar(&joinAll, "all", false, "join all nodes")
-	joinNodeCmd.Flags().StringVar(&joinMaster, "master", "", "control plane endpoint")
-	joinNodeCmd.Flags().StringVar(&joinToken, "token", "", "bootstrap token")
-	joinNodeCmd.Flags().StringVar(&joinHash, "ca-hash", "", "discovery token CA cert hash")
 	joinCmd.AddCommand(joinNodeCmd)
 	rootCmd.AddCommand(joinCmd)
 }

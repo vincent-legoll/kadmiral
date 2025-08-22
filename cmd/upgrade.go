@@ -12,7 +12,7 @@ var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "upgrade cluster using upgrade.sh",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		hosts := nodeList()
+		hosts := AppConfig.WorkerNodes
 		if len(hosts) == 0 {
 			return fmt.Errorf("no nodes specified")
 		}
