@@ -1,14 +1,36 @@
 #!/bin/sh
 
-# Reset a k8s cluster an all nodes
+# Reset a k8s cluster using kadmiral
 
 set -e
+set -x
 
-DIR=$(cd "$(dirname "$0")"; pwd -P)
-. "$DIR/env.sh"
+usage() {
+    cat << EOD
+Usage: $(basename "$0") [options]
+Available options:
+  -h            This message
 
-echo "Reset all nodes"
-echo "---------------"
-parallel -vvv --tag -- "$SSH {} -- sh /tmp/resource/reset.sh" ::: $NODES
-$SSH "$USER@$MASTER" -- sh /tmp/resource/reset.sh "$MASTER" 
+Reset k8s cluster with kadmiral
+
+EOD
+}
+
+# Get the options
+while getopts h c ; do
+    case $c in
+        h) usage ; exit 0 ;;
+        \?) usage ; exit 2 ;;
+    esac
+done
+shift "$((OPTIND-1))"
+
+if [ $# -ne 0 ] ; then
+    usage
+    exit 2
+fi
+
+echo "Reset k8s cluster"
+echo "-----------------"
+kadmiral reset
 

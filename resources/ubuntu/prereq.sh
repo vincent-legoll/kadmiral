@@ -72,7 +72,7 @@ curl -fsSL https://pkgs.k8s.io/core:/stable:/"$K8S_VERSION"/deb/Release.key | su
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/'"$K8S_VERSION"'/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 sudo apt-get update
-apt-get install -y --allow-downgrades --allow-change-held-packages \
+sudo apt-get install -y --allow-downgrades --allow-change-held-packages \
     kubelet="$KUBEADM_VERSION" kubeadm="$KUBEADM_VERSION" kubectl="$KUBEADM_VERSION"
 sudo apt-mark hold kubelet kubeadm kubectl
 
@@ -80,7 +80,7 @@ sudo apt-mark hold kubelet kubeadm kubectl
 sudo apt-get install -y ipvsadm
 
 # Configure crictl client
-sudo cat > /etc/crictl.yaml <<EOF
+cat <<EOF | sudo tee /etc/crictl.yaml
 runtime-endpoint: unix:///run/containerd/containerd.sock
 image-endpoint: unix:///run/containerd/containerd.sock
 EOF
@@ -89,8 +89,9 @@ EOF
 #
 HELM_VERSION=3.9.0
 wget -O /tmp/helm.tgz https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz
-cd /tmp
-tar zxvf /tmp/helm.tgz
+mkdir -p /tmp/helm-install
+tar zxvf /tmp/helm.tgz -C /tmp/helm-install
 rm /tmp/helm.tgz
-chmod +x /tmp/linux-amd64/helm
-mv /tmp/linux-amd64/helm /usr/local/bin/helm
+chmod +x /tmp/helm-install/linux-amd64/helm
+sudo mv /tmp/helm-install/linux-amd64/helm /usr/local/bin/helm
+rm -rf /tmp/helm-install

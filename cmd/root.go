@@ -1,0 +1,75 @@
+package cmd
+
+import (
+	"log/slog"
+	"os"
+	"path/filepath"
+
+	"github.com/k8s-school/ciux/log"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	Distrib           string   `yaml:"distrib"`
+	ControlPlaneNodes []string `yaml:"control-plane"`
+	WorkerNodes       []string `yaml:"worker"`
+	SSHUser           string   `yaml:"user"`
+	SSHKey            string   `yaml:"key"`
+	SCP               string   `yaml:"scp"`
+	SSH               string   `yaml:"ssh"`
+}
+
+var (
+	verbosity int
+	cfgFile   string
+	AppConfig Config
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "kadmiral",
+	Short: "kadmiral manages kubernetes clusters via SSH",
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		slog.Error("command failed", "err", err)
+	}
+}
+
+func init() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		slog.Error("failed to get home directory", "err", err)
+		os.Exit(1)
+	}
+	defaultConfigPath := filepath.Join(homeDir, ".kadmiral", "config.yaml")
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", defaultConfigPath, "Path to config file")
+	rootCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0, "Verbosity level (-v0 for minimal, -v2 for maximum)")
+	cobra.OnInitialize(initLogger)
+
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		return loadConfig()
+	}
+}
+
+func loadConfig() error {
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
+		return err
+	}
+	if err := yaml.Unmarshal(data, &AppConfig); err != nil {
+		return err
+	}
+	slog.Debug("config loaded", "config", AppConfig)
+	return nil
+}
+
+// setUpLogs set the log output ans the log level
+func initLogger() {
+	log.Init(verbosity)
+}

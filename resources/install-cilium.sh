@@ -6,6 +6,11 @@
 
 set -euxo pipefail
 
+DIR=$(cd "$(dirname "$0")"; pwd -P)
+
+chmod +x $DIR/wait-for-master.sh
+$DIR/wait-for-master.sh
+
 # Retrieve latest Cilium cli version with:
 # curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
 CILIUM_CLI_VERSION="v0.18.6"
@@ -24,3 +29,4 @@ cilium install --version ${CILIUM_VERSION}
 
 echo "Wait for cilium daemonset to be ready"
 kubectl rollout status -n kube-system --timeout=600s daemonset/cilium
+

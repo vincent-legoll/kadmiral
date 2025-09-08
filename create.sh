@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Create an up and running k8s cluster
+# Create an up and running k8s cluster using kadmiral
 
 set -e
 set -x
@@ -9,10 +9,9 @@ usage() {
     cat << EOD
 Usage: $(basename "$0") [options]
 Available options:
-  -p            Add support for network policies
   -h            This message
 
-Init k8s master
+Create k8s cluster with kadmiral
 
 EOD
 }
@@ -31,29 +30,14 @@ if [ $# -ne 0 ] ; then
     exit 2
 fi
 
-DIR=$(cd "$(dirname "$0")"; pwd -P)
+echo "Initialize k8s cluster"
+echo "----------------------"
+kadmiral init -v3
 
-. "$DIR/env.sh"
+echo "Install CNI (Cilium)"
+echo "-------------------"
+kadmiral cni install cilium -v3
 
-echo "Copy scripts to all nodes"
-echo "-------------------------"
-
-parallel --tag --joblog parallel.log --halt now,fail=1 \
-  rsync -avz -e "$SSH" "$DIR/resource" $USER@{}:/tmp ::: "$MASTER" $NODES
-
-echo "Install prerequisites"
-echo "---------------------"
-parallel -vvv --tag -- "$SSH $USER@{} -- sudo bash /tmp/resource/$DISTRIB/prereq.sh" ::: "$MASTER" $NODES
-
-echo "Initialize master"
+echo "Join worker nodes"
 echo "-----------------"
-$SSH "$USER@$MASTER" -- bash /tmp/resource/init.sh
-
-echo "Join nodes"
-echo "----------"
-# TODO test '-ttl' option
-JOIN_CMD=$($SSH "$USER@$MASTER" -- 'sudo kubeadm token create --print-join-command')
-# Remove trailing carriage return
-JOIN_CMD=$(echo "$JOIN_CMD" | grep 'kubeadm join' | sed -e 's/[\r\n]//g')
-echo "Join command: $JOIN_CMD"
-parallel -vvv --tag -- "$SSH $USER@{} -- sudo '$JOIN_CMD'" ::: $NODES
+kadmiral join node -v3
