@@ -1,3 +1,7 @@
+# Move this file in $HOME/.kadmiral/config.yaml
+# Edit the file to match your environment
+# kadmiral will use this file to connect to your nodes
+# Customize also your .ssh/config file to avoid password prompts
 distrib: ubuntu
 control-plane:
   - harbor-pod-1

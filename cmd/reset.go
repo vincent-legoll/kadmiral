@@ -26,8 +26,17 @@ var resetCmd = &cobra.Command{
 		}
 
 		slog.Info("resetting nodes", "nodes", hosts)
-		if _, err := remote.RunParallelScript(hosts, AppConfig.SSHUser, AppConfig.SSHKey, "reset.sh", nil); err != nil {
-			return fmt.Errorf("failed to reset nodes: %v", err)
+		_, errs := remote.RunParallelScript(hosts, AppConfig.SSHUser, AppConfig.SSHKey, "reset.sh", nil)
+
+		errMsg := ""
+		for i, err := range errs {
+			if err != nil {
+				slog.Error("failed to reset node", "error", err)
+				errMsg += fmt.Sprintf("node %s failed to reset: %v,", hosts[i], err)
+			}
+		}
+		if errMsg != "" {
+			return fmt.Errorf("reset failed: %v", errMsg)
 		}
 		slog.Info("reset complete", "nodes", hosts)
 		return nil

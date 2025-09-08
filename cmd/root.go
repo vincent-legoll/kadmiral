@@ -3,6 +3,7 @@ package cmd
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/k8s-school/ciux/log"
 	"github.com/spf13/cobra"
@@ -34,14 +35,20 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-
 	if err := rootCmd.Execute(); err != nil {
 		slog.Error("command failed", "err", err)
 	}
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "config.yaml", "Path to config file")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		slog.Error("failed to get home directory", "err", err)
+		os.Exit(1)
+	}
+	defaultConfigPath := filepath.Join(homeDir, ".kadmiral", "config.yaml")
+
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", defaultConfigPath, "Path to config file")
 	rootCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0, "Verbosity level (-v0 for minimal, -v2 for maximum)")
 	cobra.OnInitialize(initLogger)
 
@@ -58,6 +65,7 @@ func loadConfig() error {
 	if err := yaml.Unmarshal(data, &AppConfig); err != nil {
 		return err
 	}
+	slog.Debug("config loaded", "config", AppConfig)
 	return nil
 }
 

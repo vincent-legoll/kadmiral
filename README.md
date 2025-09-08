@@ -37,6 +37,16 @@ kubectl get pods -A
 
 # Go based CLI
 
+## Installation
+
+Build and install kadmiral:
+
+```shell
+go install .
+```
+
+## Usage
+
 The `kadmiral` command wraps these scripts and runs them in parallel over SSH.
 Example usage:
 
